@@ -10,15 +10,14 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/norwoodj/helm-docs/pkg/document"
+	"github.com/hugo19941994/helm-docs/pkg/document"
 )
 
 // BenchmarkHelmDocs benchmarks the entire helm-docs command by running on testdata.
 //
 // To run benchmarks, run the command:
 //
-//   go test -run=^$ -bench=. ./cmd/helm-docs
-//
+//	go test -run=^$ -bench=. ./cmd/helm-docs
 func BenchmarkHelmDocs(b *testing.B) {
 	// Copy testdata to a new temporary directory, to keep the working directory clean.
 	tmp := copyToTempDir(b, os.DirFS(filepath.Join("testdata", "benchmark")))

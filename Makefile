@@ -1,8 +1,8 @@
 helm-docs:
-	go build github.com/norwoodj/helm-docs/cmd/helm-docs
+	go build github.com/hugo19941994/helm-docs/cmd/helm-docs
 
 install:
-	go install github.com/norwoodj/helm-docs/cmd/helm-docs
+	go install github.com/hugo19941994/helm-docs/cmd/helm-docs
 
 .PHONY: fmt
 fmt:
