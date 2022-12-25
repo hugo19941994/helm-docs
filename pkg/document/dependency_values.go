@@ -32,9 +32,8 @@ func getDependencyValuesWithPrefix(root helm.ChartDocumentationInfo, allChartInf
 
 		if strings.HasPrefix(dep.Repository, "file://") {
 			searchPath = filepath.Join(root.ChartDirectory, strings.TrimPrefix(dep.Repository, "file://"))
-		} else if dep.Repository != "" {
-			log.Warnf("Chart in %q has a remote dependency %q. Dependency values will not be included.", root.ChartDirectory, dep.Name)
-			continue
+		} else if strings.HasPrefix(dep.Repository, "oci://") {
+			searchPath = filepath.Join(root.ChartDirectory, "charts", dep.Name)
 		} else {
 			searchPath = filepath.Join(root.ChartDirectory, "charts", dep.Name)
 		}
