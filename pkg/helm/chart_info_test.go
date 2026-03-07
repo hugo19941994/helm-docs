@@ -1,12 +1,13 @@
 package helm_test
 
 import (
-	"github.com/norwoodj/helm-docs/pkg/helm"
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/suite"
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/hugo19941994/helm-docs/pkg/helm"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/suite"
 )
 
 type ChartParsingTestSuite struct {
