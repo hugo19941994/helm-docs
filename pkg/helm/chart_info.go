@@ -21,6 +21,7 @@ var commentContinuationRegex = regexp.MustCompile("^\\s*#(\\s?)(.*)$")
 var defaultValueRegex = regexp.MustCompile("^\\s*# @default -- (.*)$")
 var valueTypeRegex = regexp.MustCompile("^\\((.*?)\\)\\s*(.*)$")
 var valueNotationTypeRegex = regexp.MustCompile("^\\s*#\\s+@notationType\\s+--\\s+(.*)$")
+var sectionRegex = regexp.MustCompile("^\\s*# @section -- (.*)$")
 
 type ChartMetaMaintainer struct {
 	Email string
@@ -57,6 +58,7 @@ type ChartRequirements struct {
 type ChartValueDescription struct {
 	Description  string
 	Default      string
+	Section      string
 	ValueType    string
 	NotationType string
 }
@@ -68,6 +70,12 @@ type ChartDocumentationInfo struct {
 	ChartDirectory          string
 	ChartValues             *yaml.Node
 	ChartValuesDescriptions map[string]ChartValueDescription
+}
+
+type ChartValuesDocumentationParsingConfig struct {
+	StrictMode                 bool
+	AllowedMissingValuePaths   []string
+	AllowedMissingValueRegexps []*regexp.Regexp
 }
 
 func getYamlFileContents(filename string) ([]byte, error) {
@@ -175,7 +183,60 @@ func parseChartValuesFile(chartDirectory string) (yaml.Node, error) {
 	return values, err
 }
 
-func parseChartValuesFileComments(chartDirectory string) (map[string]ChartValueDescription, error) {
+func checkDocumentation(rootNode *yaml.Node, comments map[string]ChartValueDescription, config ChartValuesDocumentationParsingConfig) error {
+	if len(rootNode.Content) == 0 {
+		return nil
+	}
+	valuesWithoutDocs := collectValuesWithoutDoc(rootNode.Content[0], comments, make([]string, 0))
+	valuesWithoutDocsAfterIgnore := make([]string, 0)
+	for _, valueWithoutDoc := range valuesWithoutDocs {
+		ignored := false
+		for _, ignorableValuePath := range config.AllowedMissingValuePaths {
+			ignored = ignored || valueWithoutDoc == ignorableValuePath
+		}
+		for _, ignorableValueRegexp := range config.AllowedMissingValueRegexps {
+			ignored = ignored || ignorableValueRegexp.MatchString(valueWithoutDoc)
+		}
+		if !ignored {
+			valuesWithoutDocsAfterIgnore = append(valuesWithoutDocsAfterIgnore, valueWithoutDoc)
+		}
+	}
+	if len(valuesWithoutDocsAfterIgnore) > 0 {
+		return fmt.Errorf("values without documentation: \n%s", strings.Join(valuesWithoutDocsAfterIgnore, "\n"))
+	}
+	return nil
+}
+
+func collectValuesWithoutDoc(node *yaml.Node, comments map[string]ChartValueDescription, currentPath []string) []string {
+	valuesWithoutDocs := make([]string, 0)
+	switch node.Kind {
+	case yaml.MappingNode:
+		for i := 0; i < len(node.Content); i += 2 {
+			keyNode, valueNode := node.Content[i], node.Content[i+1]
+			currentPath = append(currentPath, keyNode.Value)
+			pathString := strings.Join(currentPath, ".")
+			if _, ok := comments[pathString]; !ok {
+				valuesWithoutDocs = append(valuesWithoutDocs, pathString)
+			}
+
+			childValuesWithoutDoc := collectValuesWithoutDoc(valueNode, comments, currentPath)
+			valuesWithoutDocs = append(valuesWithoutDocs, childValuesWithoutDoc...)
+
+			currentPath = currentPath[:len(currentPath)-1]
+		}
+	case yaml.SequenceNode:
+		for i := 0; i < len(node.Content); i++ {
+			valueNode := node.Content[i]
+			currentPath = append(currentPath, fmt.Sprintf("[%d]", i))
+			childValuesWithoutDoc := collectValuesWithoutDoc(valueNode, comments, currentPath)
+			valuesWithoutDocs = append(valuesWithoutDocs, childValuesWithoutDoc...)
+			currentPath = currentPath[:len(currentPath)-1]
+		}
+	}
+	return valuesWithoutDocs
+}
+
+func parseChartValuesFileComments(chartDirectory string, values *yaml.Node, lintingConfig ChartValuesDocumentationParsingConfig) (map[string]ChartValueDescription, error) {
 	valuesPath := filepath.Join(chartDirectory, viper.GetString("values-file"))
 	valuesFile, err := os.Open(valuesPath)
 
@@ -189,31 +250,35 @@ func parseChartValuesFileComments(chartDirectory string) (map[string]ChartValueD
 	scanner := bufio.NewScanner(valuesFile)
 	foundValuesComment := false
 	commentLines := make([]string, 0)
+	currentLineIdx := -1
 
 	for scanner.Scan() {
+		currentLineIdx++
 		currentLine := scanner.Text()
 
 		// If we've not yet found a values comment with a key name, try and find one on each line
 		if !foundValuesComment {
 			match := valuesDescriptionRegex.FindStringSubmatch(currentLine)
-			if len(match) < 3 {
+			if len(match) < 3 || match[1] == "" {
 				continue
 			}
-			if match[1] == "" {
-				continue
-			}
-
 			foundValuesComment = true
 			commentLines = append(commentLines, currentLine)
 			continue
 		}
 
-		// If we've already found a values comment, on the next line try and parse a custom default value. If we find one
-		// that completes parsing for this key, add it to the list and reset to searching for a new key
+		// If we've already found a values comment, on the next line try and parse a comment continuation, a custom default value, or a section comment.
+		// If we find continuations we can add them to the list and continue to the next line until we find a section comment or default value.
+		// If we find a default value, we can add it to the list and continue to the next line. In the case we don't find one, we continue looking for a section comment.
+		// When we eventually find a section comment, we add it to the list and conclude matching for the current key. If we don't find one, matching is also concluded.
+		//
+		// NOTE: This isn't readily enforced yet, because we can match the section comment and custom default value more than once and in another order, although this is just overwriting it.
+		// Values comment, possible continuation, default value once or none then section comment once or none should be the preferred order.
 		defaultCommentMatch := defaultValueRegex.FindStringSubmatch(currentLine)
+		sectionCommentMatch := sectionRegex.FindStringSubmatch(currentLine)
 		commentContinuationMatch := commentContinuationRegex.FindStringSubmatch(currentLine)
 
-		if len(defaultCommentMatch) > 1 || len(commentContinuationMatch) > 1 {
+		if len(defaultCommentMatch) > 1 || len(sectionCommentMatch) > 1 || len(commentContinuationMatch) > 1 {
 			commentLines = append(commentLines, currentLine)
 			continue
 		}
@@ -221,15 +286,23 @@ func parseChartValuesFileComments(chartDirectory string) (map[string]ChartValueD
 		// If we haven't continued by this point, we didn't match any of the comment formats we want, so we need to add
 		// the in progress value to the map, and reset to looking for a new key
 		key, description := ParseComment(commentLines)
-		keyToDescriptions[key] = description
+		if key != "" {
+			keyToDescriptions[key] = description
+		}
+
 		commentLines = make([]string, 0)
 		foundValuesComment = false
 	}
-
+	if lintingConfig.StrictMode {
+		err := checkDocumentation(values, keyToDescriptions, lintingConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return keyToDescriptions, nil
 }
 
-func ParseChartInformation(chartDirectory string) (ChartDocumentationInfo, error) {
+func ParseChartInformation(chartDirectory string, documentationParsingConfig ChartValuesDocumentationParsingConfig) (ChartDocumentationInfo, error) {
 	var chartDocInfo ChartDocumentationInfo
 	var err error
 
@@ -250,7 +323,7 @@ func ParseChartInformation(chartDirectory string) (ChartDocumentationInfo, error
 	}
 
 	chartDocInfo.ChartValues = &chartValues
-	chartDocInfo.ChartValuesDescriptions, err = parseChartValuesFileComments(chartDirectory)
+	chartDocInfo.ChartValuesDescriptions, err = parseChartValuesFileComments(chartDirectory, &chartValues, documentationParsingConfig)
 	if err != nil {
 		return chartDocInfo, err
 	}

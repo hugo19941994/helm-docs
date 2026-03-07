@@ -3,32 +3,51 @@ name: Build
 on:
   push:
     branches:
-    - "*"
+      - "*"
     tags-ignore:
-    - "*"
+      - "*"
   pull_request:
     types: [opened, reopened]
 
 jobs:
-  goreleaser:
+  build:
+    name: Build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     env:
       DOCKER_CLI_EXPERIMENTAL: "enabled"
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - uses: docker/setup-qemu-action@v1
-    - uses: docker/setup-buildx-action@v1
-    - uses: actions/setup-go@v2
-      with:
-        go-version: '^1.18.0'
-    - uses: actions/cache@v1
-      with:
-        path: /home/runner/go/pkg/mod
-        key: go-mod
-    - uses: goreleaser/goreleaser-action@v2
-      with:
-        args: release --snapshot --skip-sign
-    - if: always()
-      run: rm -f ${HOME}/.docker/config.json
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+
+      - name: Setup Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-exclude G304 ./...'
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
+        with:
+          args: release --snapshot --skip=sign
+
+      - name: Verify chart diffs
+        run: ./scripts/check-example-charts-diff
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ${HOME}/.docker/config.json

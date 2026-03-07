@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+: "${CHART_DIFFS_DIR:="$(git rev-parse --show-toplevel)/chart-diffs"}"
+
+set -euo pipefail
+
+# Run chart generation
+make generate-example-charts
+
+# Check for git diff
+if git diff --quiet; then
+  echo "No difference in example charts detected. Test passes"
+  exit 0
+fi
+
+echo "Any changes to helm-docs that cause example-chart content to change must include those example-charts changes in the commit"
+exit 1

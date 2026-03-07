@@ -26,7 +26,7 @@ func getOutputFile(chartDirectory string, dryRun bool) (*os.File, error) {
 	return f, err
 }
 
-func PrintDocumentation(chartDocumentationInfo helm.ChartDocumentationInfo, chartSearchRoot string, templateFiles []string, dryRun bool, helmDocsVersion string, badgeStyle string, dependencyValues []DependencyValues) {
+func PrintDocumentation(chartDocumentationInfo helm.ChartDocumentationInfo, chartSearchRoot string, templateFiles []string, dryRun bool, helmDocsVersion string, badgeStyle string, dependencyValues []DependencyValues, skipVersionFooter bool) {
 	log.Infof("Generating README Documentation for chart %s", chartDocumentationInfo.ChartDirectory)
 
 	chartDocumentationTemplate, err := newChartDocumentationTemplate(
@@ -41,7 +41,7 @@ func PrintDocumentation(chartDocumentationInfo helm.ChartDocumentationInfo, char
 		return
 	}
 
-	chartTemplateDataObject, err := getChartTemplateData(chartDocumentationInfo, helmDocsVersion, dependencyValues)
+	chartTemplateDataObject, err := getChartTemplateData(chartDocumentationInfo, helmDocsVersion, dependencyValues, skipVersionFooter)
 	if err != nil {
 		log.Warnf("Error generating template data for chart %s: %s", chartDocumentationInfo.ChartDirectory, err)
 		return
@@ -49,7 +49,7 @@ func PrintDocumentation(chartDocumentationInfo helm.ChartDocumentationInfo, char
 
 	outputFile, err := getOutputFile(chartDocumentationInfo.ChartDirectory, dryRun)
 	if err != nil {
-		log.Warnf("Could not open chart README file %s, skipping chart", filepath.Join(chartDocumentationInfo.ChartDirectory, "README.md"))
+		log.Warnf("Could not open chart README file %s, skipping chart", filepath.Join(chartDocumentationInfo.ChartDirectory, viper.GetString("output-file")))
 		return
 	}
 

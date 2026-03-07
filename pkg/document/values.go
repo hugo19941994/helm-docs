@@ -93,13 +93,20 @@ func parseNilValueType(key string, description helm.ChartValueDescription, autoD
 		description.Default = "`nil`"
 	}
 
+	section := description.Section
+	if section == "" && autoDescription.Section != "" {
+		section = autoDescription.Section
+	}
+
 	return valueRow{
 		Key:             key,
 		Type:            t,
+		NotationType:    autoDescription.NotationType,
 		AutoDefault:     autoDescription.Default,
 		Default:         description.Default,
 		AutoDescription: autoDescription.Description,
 		Description:     description.Description,
+		Section:         section,
 		Column:          column,
 		LineNumber:      lineNumber,
 	}
@@ -179,6 +186,11 @@ func createValueRow(
 		defaultValue = fmt.Sprintf("%s", value)
 	}
 
+	section := description.Section
+	if section == "" && autoDescription.Section != "" {
+		section = autoDescription.Section
+	}
+
 	return valueRow{
 		Key:             key,
 		Type:            defaultType,
@@ -187,6 +199,7 @@ func createValueRow(
 		Default:         defaultValue,
 		AutoDescription: autoDescription.Description,
 		Description:     description.Description,
+		Section:         section,
 		Column:          column,
 		LineNumber:      lineNumber,
 	}, nil

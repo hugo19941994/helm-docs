@@ -68,6 +68,12 @@ or [scoop](https://scoop.sh):
 scoop install helm-docs
 ```
 
+or [mise](https://mise.jdx.dev):
+
+```bash
+mise use -g helm-docs@latest
+```
+
 This will download and install the [latest release](https://github.com/norwoodj/helm-docs/releases/latest)
 of the tool.
 
@@ -81,7 +87,7 @@ go build
 Or install from source:
 
 ```bash
-GO111MODULE=on go get github.com/norwoodj/helm-docs/cmd/helm-docs
+go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
 ```
 
 ## Usage
@@ -98,6 +104,73 @@ pre-commit install-hooks
 ```
 
 Future changes to your chart's `requirements.yaml`, `values.yaml`, `Chart.yaml`, or `README.md.gotmpl` files will cause an update to documentation when you commit.
+
+There are several variants of `pre-commit` hooks to choose from depending on your use case.
+
+#### `helm-docs`  Uses `helm-docs` binary located in your `PATH`
+
+```yaml
+---
+repos:
+  - repo: https://github.com/norwoodj/helm-docs
+    rev:  ""
+    hooks:
+      - id: helm-docs
+        args:
+          # Make the tool search for charts only under the `charts` directory
+          - --chart-search-root=charts
+
+```
+
+
+#### `helm-docs-built` Uses `helm-docs` built from code in git
+
+```yaml
+---
+repos:
+  - repo: https://github.com/norwoodj/helm-docs
+    rev:  ""
+    hooks:
+      - id: helm-docs-built
+        args:
+          # Make the tool search for charts only under the `charts` directory
+          - --chart-search-root=charts
+
+```
+
+
+#### `helm-docs-container` Uses the container image of `helm-docs:latest`
+
+```yaml
+---
+repos:
+  - repo: https://github.com/norwoodj/helm-docs
+    rev:  ""
+    hooks:
+      - id: helm-docs-container
+        args:
+          # Make the tool search for charts only under the `charts` directory
+          - --chart-search-root=charts
+
+```
+
+#### To pin the `helm-docs` container to a specific tag, follow the example below:
+
+
+```yaml
+---
+repos:
+  - repo: https://github.com/norwoodj/helm-docs
+    rev:  ""
+    hooks:
+      - id: helm-docs-container
+        entry: jnorwood/helm-docs:x.y.z
+        args:
+          # Make the tool search for charts only under the `charts` directory
+          - --chart-search-root=charts
+
+```
+
 
 ### Running the binary directly
 
@@ -160,35 +233,43 @@ can be used as well:
 
 | Name | Description |
 |------|-------------|
-| chart.header              | The main heading of the generated markdown file |
-| chart.name                | The _name_ field from the chart's `Chart.yaml` file |
-| chart.deprecationWarning  | A deprecation warning which is displayed when the _deprecated_ field from the chart's `Chart.yaml` file is `true` |
-| chart.description         | A description line containing the _description_ field from the chart's `Chart.yaml` file, or "" if that field is not set |
-| chart.version             | The _version_ field from the chart's `Chart.yaml` file |
-| chart.versionBadge        | A badge stating the current version of the chart |
-| chart.type                | The _type_ field from the chart's `Chart.yaml` file |
-| chart.typeBadge           | A badge stating the current type of the chart |
-| chart.appVersion          | The _appVersion_ field from the chart's `Chart.yaml` file |
-| chart.appVersionBadge     | A badge stating the current appVersion of the chart |
-| chart.homepage            | The _home_ link from the chart's `Chart.yaml` file, or "" if that field is not set |
-| chart.homepageLine        | A text line stating the current homepage of the chart |
-| chart.maintainersHeader   | The heading for the chart maintainers section |
-| chart.maintainersTable    | A table of the chart's maintainers |
-| chart.maintainersSection  | A section headed by the maintainersHeader from above containing the maintainersTable from above or "" if there are no maintainers |
-| chart.sourcesHeader       | The heading for the chart sources section |
-| chart.sourcesList         | A list of the chart's sources |
-| chart.sourcesSection      | A section headed by the sourcesHeader from above containing the sourcesList from above or "" if there are no sources |
-| chart.kubeVersion         | The _kubeVersion_ field from the chart's `Chart.yaml` file |
-| chart.kubeVersionLine     | A text line stating the required Kubernetes version for the chart |~~~~
-| chart.requirementsHeader  | The heading for the chart requirements section |
-| chart.requirementsTable   | A table of the chart's required sub-charts |
-| chart.requirementsSection | A section headed by the requirementsHeader from above containing the kubeVersionLine and/or the requirementsTable from above or "" if there are no requirements |
-| chart.valuesHeader        | The heading for the chart values section |
-| chart.valuesTable         | A table of the chart's values parsed from the `values.yaml` file (see below) |
-| chart.valuesSection       | A section headed by the valuesHeader from above containing the valuesTable from above or "" if there are no values |
-| chart.valuesTableHtml     | Like `chart.valuesTable` but it is rendered as (X)HTML tags to allow further rendering customization, instead of markdown tables format. |
-| chart.valuesSectionHtml   | Like `chart.valuesSection` but uses `chart.valuesTableHtml` |
-| chart.valueDefaultColumnRender | This is a hook template if you want to redefine how helm-docs render the default values in `chart.valuesTableHtml` mode. This is especially useful when combined with (X)HTML tags, so that you can nicely format multiline default values, like YAML/JSON object tree snippet with codeblock syntax highlighter, which is not possible or difficult when using the markdown table format. It can be redefined in your template file. |
+| chart.header                         | The main heading of the generated markdown file |
+| chart.name                           | The _name_ field from the chart's `Chart.yaml` file |
+| chart.deprecationWarning             | A deprecation warning which is displayed when the _deprecated_ field from the chart's `Chart.yaml` file is `true` |
+| chart.description                    | A description line containing the _description_ field from the chart's `Chart.yaml` file, or "" if that field is not set |
+| chart.version                        | The _version_ field from the chart's `Chart.yaml` file |
+| chart.versionBadge                   | A badge stating the current version of the chart |
+| chart.type                           | The _type_ field from the chart's `Chart.yaml` file |
+| chart.typeBadge                      | A badge stating the current type of the chart |
+| chart.appVersion                     | The _appVersion_ field from the chart's `Chart.yaml` file |
+| chart.appVersionBadge                | A badge stating the current appVersion of the chart |
+| chart.homepage                       | The _home_ link from the chart's `Chart.yaml` file, or "" if that field is not set |
+| chart.homepageLine                   | A text line stating the current homepage of the chart |
+| chart.maintainersHeader              | The heading for the chart maintainers section |
+| chart.maintainersTable               | A table of the chart's maintainers |
+| chart.maintainersSection             | A section headed by the maintainersHeader from above containing the maintainersTable from above or "" if there are no maintainers |
+| chart.sourcesHeader                  | The heading for the chart sources section |
+| chart.sourcesList                    | A list of the chart's sources |
+| chart.sourcesSection                 | A section headed by the sourcesHeader from above containing the sourcesList from above or "" if there are no sources |
+| chart.kubeVersion                    | The _kubeVersion_ field from the chart's `Chart.yaml` file |
+| chart.kubeVersionLine                | A text line stating the required Kubernetes version for the chart |~~~~
+| chart.requirementsHeader             | The heading for the chart requirements section |
+| chart.requirementsTable              | A table of the chart's required sub-charts |
+| chart.requirementsSection            | A section headed by the requirementsHeader from above containing the kubeVersionLine and/or the requirementsTable from above or "" if there are no requirements |
+| chart.valuesHeader                   | The heading for the chart values section |
+| chart.valuesTableMd                  | A table of the chart's values parsed from the `values.yaml` file (see below) |
+| chart.valuesTable                    | Deprecated. Maps to `chart.valuesTableMd` |
+| chart.valuesSectionMd                | A section headed by the valuesHeader from above containing the valuesTable from above or "" if there are no values |
+| chart.valuesSection                  | Deprecated. Maps to `chart.valuesSectionMd` |
+| chart.valueKeyColumnRenderMd         | This is a hook template if you want to redefine how helm-docs render the key values. |
+| chart.valueTypeColumnRenderMd        | This is a hook template if you want to redefine how helm-docs render the type values. |
+| chart.valueDefaultColumnRenderMd     | This is a hook template if you want to redefine how helm-docs render the default values in `chart.valuesSection` mode. |
+| chart.valueDescriptionColumnRenderMd | This is a hook template if you want to redefine how helm-docs render the description values. |
+| chart.valuesTableHtml                | Like `chart.valuesTableMd` but it is rendered as (X)HTML tags to allow further rendering customization, instead of markdown tables format. |
+| chart.valuesSectionHtml              | Like `chart.valuesSectionMd` but uses `chart.valuesTableHtml` |
+| chart.valueDefaultColumnRenderHtml   | This is a hook template if you want to redefine how helm-docs render the default values in `chart.valuesTableHtml` mode. This is especially useful when combined with (X)HTML tags, so that you can nicely format multiline default values, like YAML/JSON object tree snippet with codeblock syntax highlighter, which is not possible or difficult when using the markdown table format. It can be redefined in your template file. |
+| chart.valueDefaultColumnRender       | Deprecated. Maps to `chart.valueDefaultColumnRenderHtml` |
+| helm-docs.versionFooter              | A footer that contains the version of helm docs being used. |
 
 The default internal template mentioned above uses many of these and looks like this:
 ```
@@ -208,6 +289,9 @@ The default internal template mentioned above uses many of these and looks like 
 {{ template "chart.requirementsSection" . }}
 
 {{ template "chart.valuesSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}
+
 ```
 
 The tool also includes the [sprig templating library](https://github.com/Masterminds/sprig), so those functions can be used
@@ -382,8 +466,8 @@ row are rendered.
 
 2. Overriding built-in templates
 
-You can always overrides or redefine built-in templates in your own `_templates.
-gotmpl` file. The built-in templates can be thought of as a template hook.
+You can always overrides or redefine built-in templates in your own `_templates.gotmpl` 
+file. The built-in templates can be thought of as a template hook.
 For example, if you need to change the HTML table, for example to add a new
 column, or define maximum width/height, you can override `chart.valuesTableHtml`. Your overrides will then be called by `chart.valuesSectionHtml`.
 
@@ -431,3 +515,76 @@ markdown or markdownX files to be processed by Gatsby or Hugo into
 a static Web/Javascript page.
 
 For a more concrete examples on how to do these custom rendering, see [example here](./example-charts/custom-value-notation-type/README.md)
+
+
+## Strict linting
+
+Sometimes you might want to enforce helm-docs to fail when some values are not documented correctly.
+
+By default, this option is turned off:
+
+```shell
+./helm-docs -c  example-charts/helm-3
+INFO[2023-06-29T07:54:29-07:00] Found Chart directories [.]
+INFO[2023-06-29T07:54:29-07:00] Generating README Documentation for chart example-charts/helm-3
+```
+
+but you can use the `-x` flag to turn it on:
+
+```shell
+helm-docs -x -c  example-charts/helm-3
+INFO[2023-06-29T07:55:12-07:00] Found Chart directories [.]
+WARN[2023-06-29T07:55:12-07:00] Error parsing information for chart ., skipping: values without documentation:
+controller
+controller.name
+controller.image
+controller.extraVolumes.[0].name
+controller.extraVolumes.[0].configMap
+controller.extraVolumes.[0].configMap.name
+controller.livenessProbe.httpGet
+controller.livenessProbe.httpGet.port
+controller.publishService
+controller.service
+controller.service.annotations
+controller.service.annotations.external-dns.alpha.kubernetes.io/hostname
+```
+
+The CLI also supports excluding fields by regexp using the `-z` argument
+
+```shell
+helm-docs -x -z="controller.*" -c  example-charts/helm-3
+INFO[2023-06-29T08:18:55-07:00] Found Chart directories [.]
+INFO[2023-06-29T08:18:55-07:00] Generating README Documentation for chart example-charts/helm-3
+```
+
+Multiple regexp can be passed, as in the following example:
+
+```shell
+helm-docs -x -z="controller.image.*" -z="controller.service.*"  -z="controller.extraVolumes.*"  -c  example-charts/helm-3
+INFO[2023-06-29T08:21:04-07:00] Found Chart directories [.]
+WARN[2023-06-29T08:21:04-07:00] Error parsing information for chart ., skipping: values without documentation:
+controller
+controller.name
+controller.livenessProbe.httpGet
+controller.livenessProbe.httpGet.port
+controller.publishService
+```
+
+It is also possible to ignore specific errors using the `-y` argument.
+
+```shell
+helm-docs -x -y="controller.name" -y="controller.service"  -c  example-charts/helm-3
+INFO[2023-06-29T08:23:40-07:00] Found Chart directories [.]
+WARN[2023-06-29T08:23:40-07:00] Error parsing information for chart ., skipping: values without documentation:
+controller
+controller.image
+controller.extraVolumes.[0].name
+controller.extraVolumes.[0].configMap
+controller.extraVolumes.[0].configMap.name
+controller.livenessProbe.httpGet
+controller.livenessProbe.httpGet.port
+controller.publishService
+controller.service.annotations
+controller.service.annotations.external-dns.alpha.kubernetes.io/hostname
+
+```

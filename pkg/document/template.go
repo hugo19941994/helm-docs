@@ -10,7 +10,6 @@ import (
 
 	"github.com/hugo19941994/helm-docs/pkg/util"
 
-	"github.com/Masterminds/sprig/v3"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/hugo19941994/helm-docs/pkg/helm"
@@ -31,9 +30,11 @@ const defaultDocumentationTemplate = `{{ template "chart.header" . }}
 
 {{ template "chart.requirementsSection" . }}
 
-{{ template "chart.valuesSection" . }}
+{{ template "chart.valuesSectionMd" . }}
 
+{{- if not .SkipVersionFooter }}
 {{ template "helm-docs.versionFooter" . }}
+{{- end }}
 `
 
 func getNameTemplate() string {
@@ -126,7 +127,7 @@ func getMaintainersTemplate() string {
 	maintainerBuilder.WriteString(`{{ define "chart.maintainersHeader" }}## Maintainers{{ end }}`)
 
 	maintainerBuilder.WriteString(`{{ define "chart.maintainersTable" }}`)
-	maintainerBuilder.WriteString("| Name | Email | Url |\n")
+	maintainerBuilder.WriteString("| Name | Email | URL |\n")
 	maintainerBuilder.WriteString("| ---- | ------ | --- |\n")
 	maintainerBuilder.WriteString("  {{- range .Maintainers }}")
 	maintainerBuilder.WriteString("\n| {{ .Name }} | {{ if .Email }}<{{ .Email }}>{{ end }} | {{ if .Url }}<{{ .Url }}>{{ end }} |")
@@ -207,23 +208,84 @@ func getValuesTableTemplates() string {
 	valuesSectionBuilder := strings.Builder{}
 	valuesSectionBuilder.WriteString(`{{ define "chart.valuesHeader" }}## Values{{ end }}`)
 
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueKeyColumnRenderMd" }}`)
+	valuesSectionBuilder.WriteString("{{ .Key }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueTypeColumnRenderMd" }}`)
+	valuesSectionBuilder.WriteString("{{ .Type }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueDefaultColumnRenderMd" }}`)
+	valuesSectionBuilder.WriteString("{{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueDescriptionColumnRenderMd" }}`)
+	valuesSectionBuilder.WriteString("{{ if .Description }}{{ .Description }}{{ else }}{{ .AutoDescription }}{{ end }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+
 	valuesSectionBuilder.WriteString(`{{ define "chart.valuesTable" }}`)
+	valuesSectionBuilder.WriteString("{{ if .Sections.Sections }}")
+	valuesSectionBuilder.WriteString("{{ range .Sections.Sections }}")
+	valuesSectionBuilder.WriteString("\n")
+	valuesSectionBuilder.WriteString("\n### {{ .SectionName }}\n")
+	valuesSectionBuilder.WriteString("\n")
+	valuesSectionBuilder.WriteString("| Key | Type | Default | Description |\n")
+	valuesSectionBuilder.WriteString("|-----|------|---------|-------------|\n")
+	valuesSectionBuilder.WriteString("  {{- range .SectionItems }}")
+	valuesSectionBuilder.WriteString("\n" + `| {{ template "chart.valueKeyColumnRenderMd" . }} | {{ template "chart.valueTypeColumnRenderMd" . }} | {{ template "chart.valueDefaultColumnRenderMd" . }} | {{ template "chart.valueDescriptionColumnRenderMd" . }} |`)
+	valuesSectionBuilder.WriteString("  {{- end }}")
+	valuesSectionBuilder.WriteString("{{- end }}")
+	valuesSectionBuilder.WriteString("{{ if .Sections.DefaultSection.SectionItems}}")
+	valuesSectionBuilder.WriteString("\n")
+	valuesSectionBuilder.WriteString("\n### {{ .Sections.DefaultSection.SectionName }}\n")
+	valuesSectionBuilder.WriteString("\n")
+	valuesSectionBuilder.WriteString("| Key | Type | Default | Description |\n")
+	valuesSectionBuilder.WriteString("|-----|------|---------|-------------|\n")
+	valuesSectionBuilder.WriteString("  {{- range .Sections.DefaultSection.SectionItems }}")
+	valuesSectionBuilder.WriteString("\n" + `| {{ template "chart.valueKeyColumnRenderMd" . }} | {{ template "chart.valueTypeColumnRenderMd" . }} | {{ template "chart.valueDefaultColumnRenderMd" . }} | {{ template "chart.valueDescriptionColumnRenderMd" . }} |`)
+	valuesSectionBuilder.WriteString("  {{- end }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+	valuesSectionBuilder.WriteString("{{ else }}")
 	valuesSectionBuilder.WriteString("| Key | Type | Default | Description |\n")
 	valuesSectionBuilder.WriteString("|-----|------|---------|-------------|\n")
 	valuesSectionBuilder.WriteString("  {{- range .Values }}")
-	valuesSectionBuilder.WriteString("\n| {{ .Key }} | {{ .Type }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} | {{ if .Description }}{{ .Description }}{{ else }}{{ .AutoDescription }}{{ end }} |")
+	valuesSectionBuilder.WriteString("\n" + `| {{ template "chart.valueKeyColumnRenderMd" . }} | {{ template "chart.valueTypeColumnRenderMd" . }} | {{ template "chart.valueDefaultColumnRenderMd" . }} | {{ template "chart.valueDescriptionColumnRenderMd" . }} |`)
 	valuesSectionBuilder.WriteString("  {{- end }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+	valuesSectionBuilder.WriteString("{{ end }}")
+
+	// TODO: Remove this block and rename `chart.valuesTable` to `chart.valuesTableMd` in the future
+	valuesSectionBuilder.WriteString(`{{ define "chart.valuesTableMd" }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valuesTable" . }}`)
 	valuesSectionBuilder.WriteString("{{ end }}")
 
 	valuesSectionBuilder.WriteString(`{{ define "chart.valuesSection" }}`)
 	valuesSectionBuilder.WriteString("{{ if .Values }}")
 	valuesSectionBuilder.WriteString(`{{ template "chart.valuesHeader" . }}`)
 	valuesSectionBuilder.WriteString("\n\n")
-	valuesSectionBuilder.WriteString(`{{ template "chart.valuesTable" . }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valuesTableMd" . }}`)
 	valuesSectionBuilder.WriteString("{{ end }}")
 	valuesSectionBuilder.WriteString("{{ end }}")
 
+	// TODO: Remove this block and rename `chart.valuesTable` to `chart.valuesTableMd` in the future
+	valuesSectionBuilder.WriteString(`{{ define "chart.valuesSectionMd" }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valuesSection" . }}`)
+	valuesSectionBuilder.WriteString("{{ end }}")
+
 	// For HTML tables
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueKeyColumnRenderHtml" }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valueKeyColumnRenderMd" . }}`)
+	valuesSectionBuilder.WriteString("{{ end }}")
+
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueTypeColumnRenderHtml" }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valueTypeColumnRenderMd" . }}`)
+	valuesSectionBuilder.WriteString("{{ end }}")
+
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueDescriptionColumnRenderHtml" }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valueDescriptionColumnRenderMd" . }}`)
+	valuesSectionBuilder.WriteString("{{ end }}")
+
 	valuesSectionBuilder.WriteString(`
 {{ define "chart.valueDefaultColumnRender" }}
 {{- $defaultValue := (default .Default .AutoDefault)  -}}
@@ -243,6 +305,50 @@ func getValuesTableTemplates() string {
 {{ end }}
 
 {{ define "chart.valuesTableHtml" }}
+{{ if .Sections.Sections }}
+{{- range .Sections.Sections }}
+<h3>{{- .SectionName }}</h3>
+<table>
+	<thead>
+		<th>Key</th>
+		<th>Type</th>
+		<th>Default</th>
+		<th>Description</th>
+	</thead>
+	<tbody>
+	{{- range .SectionItems }}
+		<tr>
+			<td>{{ template "chart.valueKeyColumnRenderHtml" . }}</td>
+			<td>{{ template "chart.valueTypeColumnRenderHtml" . }}</td>
+			<td>{{ template "chart.valueDefaultColumnRenderHtml" . }}</td>
+			<td>{{ template "chart.valueDescriptionColumnRenderHtml" . }}</td>
+		</tr>
+	{{- end }}
+	</tbody>
+</table>
+{{- end }}
+{{ if .Sections.DefaultSection.SectionItems }}
+<h3>{{- .Sections.DefaultSection.SectionName }}</h3>
+<table>
+	<thead>
+		<th>Key</th>
+		<th>Type</th>
+		<th>Default</th>
+		<th>Description</th>
+	</thead>
+	<tbody>
+	{{- range .Sections.DefaultSection.SectionItems }}
+	<tr>
+		<td>{{ template "chart.valueKeyColumnRenderHtml" . }}</td>
+		<td>{{ template "chart.valueTypeColumnRenderHtml" . }}</td>
+		<td>{{ template "chart.valueDefaultColumnRenderHtml" . }}</td>
+		<td>{{ template "chart.valueDescriptionColumnRenderHtml" . }}</td>
+	</tr>
+	{{- end }}
+	</tbody>
+</table>
+{{ end }}
+{{ else }}
 <table>
 	<thead>
 		<th>Key</th>
@@ -253,23 +359,29 @@ func getValuesTableTemplates() string {
 	<tbody>
 	{{- range .Values }}
 		<tr>
-			<td>{{ .Key }}</td>
-			<td>{{ .Type }}</td>
-			<td>{{ template "chart.valueDefaultColumnRender" . }}</td>
-			<td>{{ if .Description }}{{ .Description }}{{ else }}{{ .AutoDescription }}{{ end }}</td>
+			<td>{{ template "chart.valueKeyColumnRenderHtml" . }}</td>
+			<td>{{ template "chart.valueTypeColumnRenderHtml" . }}</td>
+			<td>{{ template "chart.valueDefaultColumnRenderHtml" . }}</td>
+			<td>{{ template "chart.valueDescriptionColumnRenderHtml" . }}</td>
 		</tr>
 	{{- end }}
 	</tbody>
 </table>
 {{ end }}
+{{ end }}
 
 {{ define "chart.valuesSectionHtml" }}
-{{ if .Values }}
+{{ if .Sections }}
 {{ template "chart.valuesHeader" . }}
 {{ template "chart.valuesTableHtml" . }}
 {{ end }}
 {{ end }}
 		`)
+
+	// TODO: Remove this block and rename `chart.valueDefaultColumnRender` to `chart.valueDefaultColumnRenderHtml` in the future
+	valuesSectionBuilder.WriteString(`{{ define "chart.valueDefaultColumnRenderHtml" }}`)
+	valuesSectionBuilder.WriteString(`{{ template "chart.valueDefaultColumnRender" . }}`)
+	valuesSectionBuilder.WriteString("{{ end }}")
 
 	return valuesSectionBuilder.String()
 }
@@ -359,7 +471,7 @@ func getDocumentationTemplates(chartDirectory string, chartSearchRoot string, te
 
 func newChartDocumentationTemplate(chartDocumentationInfo helm.ChartDocumentationInfo, chartSearchRoot string, templateFiles []string, badgeStyle string) (*template.Template, error) {
 	documentationTemplate := template.New(chartDocumentationInfo.ChartDirectory)
-	documentationTemplate.Funcs(sprig.TxtFuncMap())
+	documentationTemplate.Funcs(util.FuncMap())
 	goTemplateList, err := getDocumentationTemplates(chartDocumentationInfo.ChartDirectory, chartSearchRoot, templateFiles, badgeStyle)
 
 	if err != nil {
